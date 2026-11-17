@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Catch Force Survey</title>
+<meta name="description" content="In-person survey for a magnetic catch: sort blind-coded closures, mark the acceptable range, tip test, match to familiar closures. Data stays on this device.">
+<meta name="theme-color" content="#1f5fae">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='14' width='22' height='36' rx='5' fill='%231f5fae'/%3E%3Crect x='36' y='14' width='22' height='36' rx='5' fill='%23b3261e'/%3E%3Crect x='28' y='26' width='8' height='12' fill='%2399a3b3'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #f5f6f8; --card: #ffffff; --text: #1c2330; --muted: #5a6474; --line: #d8dde5;
+  --accent: #1f5fae; --accent-ink: #ffffff; --accent-soft: #e3ecf8;
+  --good: #1d7a48; --good-soft: #e0f2e8; --bad: #b3261e; --bad-soft: #fbe5e3;
+  --warn: #7a5200; --warn-soft: #fff3d6; --chip: #eef1f6; --shadow: 0 1px 2px rgba(20,30,50,.06), 0 2px 8px rgba(20,30,50,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11151b; --card: #1a2029; --text: #e6eaf0; --muted: #9aa4b4; --line: #2c3542;
+    --accent: #6ea6ee; --accent-ink: #0c1420; --accent-soft: #1d2b3e;
+    --good: #5fc28d; --good-soft: #17301f; --bad: #f08b81; --bad-soft: #3a1c1a;
+    --warn: #f0c46a; --warn-soft: #2e2512; --chip: #232b36; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11151b; --card: #1a2029; --text: #e6eaf0; --muted: #9aa4b4; --line: #2c3542;
+  --accent: #6ea6ee; --accent-ink: #0c1420; --accent-soft: #1d2b3e;
+  --good: #5fc28d; --good-soft: #17301f; --bad: #f08b81; --bad-soft: #3a1c1a;
+  --warn: #f0c46a; --warn-soft: #2e2512; --chip: #232b36; --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+main { max-width: 760px; margin: 0 auto; padding: 16px 16px 96px; }
+header.bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  max-width: 760px; margin: 0 auto; padding: 14px 16px 0;
+}
+header.bar h1 { font-size: 17px; margin: 0; letter-spacing: .01em; }
+header.bar .meta { color: var(--muted); font-size: 13px; }
+h2 { font-size: 24px; line-height: 1.25; margin: 6px 0 6px; }
+h3 { font-size: 17px; margin: 18px 0 8px; }
+p { margin: 6px 0 10px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); margin: 12px 0; }
+.note { border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 8px; padding: 10px 12px; font-size: 14px; margin: 10px 0; }
+.warn { border-left: 3px solid var(--warn); background: var(--warn-soft); color: var(--text); border-radius: 8px; padding: 10px 12px; font-size: 14px; margin: 10px 0; }
+.err { border-left: 3px solid var(--bad); background: var(--bad-soft); border-radius: 8px; padding: 10px 12px; font-size: 14px; margin: 10px 0; }
+button, .btn {
+  font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--card); color: var(--text); padding: 10px 14px; min-height: 44px;
+}
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+button.danger { color: var(--bad); }
+button.ghost { background: transparent; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.spread { display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap; }
+.grow { flex: 1 1 auto; }
+.stack > * + * { margin-top: 8px; }
+.big-actions { display: grid; gap: 10px; }
+.big-actions button { min-height: 56px; font-size: 17px; text-align: left; padding: 12px 16px; }
+.code {
+  display: inline-grid; place-items: center; min-width: 48px; height: 48px; padding: 0 10px;
+  border-radius: 12px; background: var(--chip); font-weight: 700; font-size: 22px; letter-spacing: .02em;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  min-width: 56px; min-height: 52px; font-size: 20px; font-weight: 700; border-radius: 12px;
+  background: var(--chip); border: 2px solid transparent;
+}
+.chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.sortlist { list-style: none; margin: 0; padding: 0; }
+.sortlist li {
+  display: flex; align-items: center; gap: 10px; padding: 8px; border: 1px solid var(--line);
+  border-radius: 12px; background: var(--card); margin: 8px 0;
+}
+.sortlist li .pos { width: 26px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sortlist li .arrows { margin-left: auto; display: flex; gap: 6px; }
+.sortlist li .arrows button { width: 52px; font-size: 20px; padding: 0; }
+.endlabel { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.opts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.opts button { font-size: 13px; padding: 8px 6px; line-height: 1.25; min-height: 52px; }
+.opts button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+@media (max-width: 560px) { .opts { grid-template-columns: 1fr 1fr; } .opts button:last-child { grid-column: span 2; } }
+.matchrow { padding: 12px 0; border-top: 1px solid var(--line); }
+.matchrow:first-child { border-top: 0; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pair button { min-height: 56px; font-size: 17px; }
+.pair button[aria-pressed="true"].held { background: var(--good); color: #fff; border-color: var(--good); }
+.pair button[aria-pressed="true"].opened { background: var(--bad); color: #fff; border-color: var(--bad); }
+.progress { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; margin: 6px 0 2px; }
+.progress > i { display: block; height: 100%; background: var(--accent); }
+.footer-nav {
+  position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+}
+.footer-nav .inner { max-width: 760px; margin: 0 auto; display: flex; gap: 10px; }
+.footer-nav .inner button { flex: 1; min-height: 52px; font-size: 17px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { border-bottom: 1px solid var(--line); padding: 7px 6px; text-align: left; vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: 13px; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+input[type="text"], input[type="number"], textarea {
+  font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 10px; padding: 9px 10px; width: 100%; min-height: 44px;
+}
+textarea { min-height: 120px; resize: vertical; }
+.forcegrid { display: grid; grid-template-columns: 64px 1fr 52px; gap: 8px; align-items: center; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.stat { background: var(--chip); border-radius: 12px; padding: 10px 12px; }
+.stat b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 13px; }
+@media (max-width: 560px) { .stats { grid-template-columns: 1fr; } }
+svg.chart { width: 100%; height: auto; display: block; }
+svg.chart text { fill: var(--muted); font-size: 12px; font-family: inherit; }
+svg.chart { max-width: 560px; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 12px; background: var(--chip); }
+.pill.good { background: var(--good-soft); color: var(--good); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1>Catch Force Survey</h1>
+  <span class="meta" id="meta"></span>
+</header>
+<main id="app" aria-live="polite"></main>
+<nav class="footer-nav hidden" id="nav"><div class="inner" id="navInner"></div></nav>
+
+<script>
+"use strict";
+/* ---------------------------------------------------------------- storage (this device only) */
+const KEY = "catchSurvey.v1";
+const LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+const DEFAULT = () => ({
+  config: {
+    codes: ["A", "B", "C", "D", "E", "F"].map(c => ({ code: c, force: "" })),
+    anchors: ["Gift box", "Eyeglass case", "Cabinet catch"],
+    frame: "a small box you carry and open by hand",
+  },
+  participants: [],
+});
+let storageOK = true;
+let db = load();
+
+function load() {
+  try {
+    const s = localStorage.getItem(KEY);
+    if (s) return normalize(JSON.parse(s));
+  } catch (e) { storageOK = false; }
+  return DEFAULT();
+}
+function normalize(d) {
+  const base = DEFAULT();
+  if (!d || typeof d !== "object") return base;
+  const c = d.config || {};
+  return {
+    config: {
+      codes: Array.isArray(c.codes) && c.codes.length ? c.codes.map(x => ({ code: String(x.code), force: x.force ?? "" })) : base.config.codes,
+      anchors: Array.isArray(c.anchors) && c.anchors.length === 3 ? c.anchors.map(String) : base.config.anchors,
+      frame: typeof c.frame === "string" ? c.frame : base.config.frame,
+    },
+    participants: Array.isArray(d.participants) ? d.participants : [],
+  };
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(db)); storageOK = true; }
+  catch (e) { storageOK = false; }
+  renderMeta();
+}
+
+/* ---------------------------------------------------------------- helpers */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+const codes = () => db.config.codes.map(c => c.code);
+const forceOf = code => { const c = db.config.codes.find(x => x.code === code); const v = c ? parseFloat(c.force) : NaN; return Number.isFinite(v) ? v : NaN; };
+const fmtN = v => Number.isFinite(v) ? v.toFixed(2) : "–";
+const nowISO = () => new Date().toISOString();
+function shuffle(a) {
+  const b = a.slice();
+  for (let i = b.length - 1; i > 0; i--) {
+    let r;
+    if (window.crypto && crypto.getRandomValues) { const u = new Uint32Array(1); crypto.getRandomValues(u); r = u[0] / 4294967296; } else r = Math.random();
+    const j = Math.floor(r * (i + 1)); [b[i], b[j]] = [b[j], b[i]];
+  }
+  return b;
+}
+function nextId() {
+  const n = db.participants.reduce((m, p) => Math.max(m, parseInt(String(p.id).replace(/\D/g, ""), 10) || 0), 0) + 1;
+  return "P" + String(n).padStart(2, "0");
+}
+function median(xs) {
+  const v = xs.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!v.length) return NaN;
+  const m = Math.floor(v.length / 2);
+  return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+}
+function matchLabels() {
+  const a = db.config.anchors;
+  return ["Weaker than " + a[0], "Like " + a[0], "Like " + a[1], "Like " + a[2], "Stronger than " + a[2]];
+}
+/* Kendall's tau-a between a participant's weakest-to-strongest order and the measured forces (pairs with equal force skipped). */
+function kendall(order) {
+  let c = 0, d = 0;
+  for (let i = 0; i < order.length; i++) for (let j = i + 1; j < order.length; j++) {
+    const fi = forceOf(order[i]), fj = forceOf(order[j]);
+    if (!Number.isFinite(fi) || !Number.isFinite(fj) || fi === fj) continue;
+    if (fj > fi) c++; else d++;
+  }
+  return c + d ? (c - d) / (c + d) : NaN;
+}
+function download(name, text, type) {
+  const blob = new Blob([text], { type });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+const csvCell = v => { const s = String(v ?? ""); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+const toCSV = rows => rows.map(r => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+const stamp = () => new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+
+/* ---------------------------------------------------------------- view state */
+let view = { name: "home" };
+let cur = null;                       // participant in progress
+const STEPS = ["intro", "sort", "marks", "tip", "match", "comment"];
+
+function go(v) { view = v; render(); window.scrollTo(0, 0); }
+
+function renderMeta() {
+  const done = db.participants.length;
+  $("#meta").textContent = done + (done === 1 ? " response" : " responses") + (storageOK ? "" : " · not saved");
+}
+
+function nav(buttons) {
+  const navEl = $("#nav");
+  if (!buttons) { navEl.classList.add("hidden"); return; }
+  navEl.classList.remove("hidden");
+  $("#navInner").innerHTML = buttons.map(b =>
+    `<button class="${b.cls || ""}" data-act="${b.act}" ${b.disabled ? "disabled" : ""}>${esc(b.label)}</button>`).join("");
+}
+
+/* ---------------------------------------------------------------- screens */
+function render() {
+  renderMeta();
+  const app = $("#app");
+  const fn = { home: viewHome, setup: viewSetup, run: viewRun, done: viewDone, results: viewResults }[view.name] || viewHome;
+  app.innerHTML = fn();
+  if (view.name === "run") bindRunInputs();
+  if (view.name === "setup") bindSetupInputs();
+}
+
+function viewHome() {
+  nav(null);
+  const missing = db.config.codes.filter(c => !Number.isFinite(parseFloat(c.force))).length;
+  return `
+  ${storageOK ? "" : `<div class="err">This browser is not saving data (private mode or blocked storage). Export after every participant, or responses are lost on reload.</div>`}
+  <div class="card">
+    <h2>Run the survey</h2>
+    <p class="muted">For the experimenter. Hand the participant the closures in the order shown, then let them use this screen. Nothing is sent anywhere: answers stay in this browser until you export them.</p>
+    <div class="big-actions">
+      <button class="primary" data-act="start">Start participant ${esc(nextId())}</button>
+      <button data-act="results">Results and export (${db.participants.length})</button>
+      <button data-act="setup">Setup: closure codes, forces, anchors</button>
+    </div>
+  </div>
+  ${missing ? `<div class="note">${missing} closure force${missing === 1 ? " is" : "s are"} not entered yet. You can run the survey now and enter the measured forces later; results in newtons appear once they are filled in.</div>` : ""}
+  <div class="card small">
+    <h3 style="margin-top:0">What each participant does</h3>
+    <ol style="margin:0; padding-left: 20px">
+      <li>Sorts the closures from weakest to strongest.</li>
+      <li>Marks the weakest they would accept, the one they would choose, and the strongest they would accept.</li>
+      <li>Tip test on the marked closures (you record held or opened).</li>
+      <li>Matches each closure to a familiar one: ${db.config.anchors.map(esc).join(", ")}.</li>
+      <li>Optional comment.</li>
+    </ol>
+  </div>`;
+}
+
+function viewSetup() {
+  nav([{ label: "Done", act: "home", cls: "primary" }]);
+  const locked = db.participants.length > 0;
+  return `
+  <h2>Setup</h2>
+  <div class="card">
+    <h3 style="margin-top:0">Closures</h3>
+    <p class="small muted">Codes are what the participant sees. Enter each closure's force as measured on the pull tester (N). Forces are never shown during the survey.</p>
+    <div class="forcegrid small muted"><span>Code</span><span>Measured force (N)</span><span></span></div>
+    ${db.config.codes.map((c, i) => `
+      <div class="forcegrid" style="margin-top:6px">
+        <span class="code">${esc(c.code)}</span>
+        <input type="number" inputmode="decimal" step="0.01" min="0" placeholder="measure on the tester" data-force="${i}" value="${esc(c.force)}" aria-label="Force of closure ${esc(c.code)} in newtons">
+        <button class="ghost danger" data-act="delcode" data-i="${i}" aria-label="Remove closure ${esc(c.code)}" ${db.config.codes.length <= 2 ? "disabled" : ""}>✕</button>
+      </div>`).join("")}
+    <div class="row" style="margin-top:10px"><button data-act="addcode">Add closure</button></div>
+    ${locked ? `<div class="warn">Responses exist. Changing the list of codes now makes earlier and later participants see different sets. Forces can be edited at any time.</div>` : ""}
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Familiar closures (anchors)</h3>
+    <p class="small muted">Weakest to strongest. Show or hand these over during the matching step.</p>
+    ${db.config.anchors.map((a, i) => `<input type="text" data-anchor="${i}" value="${esc(a)}" aria-label="Anchor ${i + 1}" style="margin-top:6px">`).join("")}
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Use the participant imagines</h3>
+    <p class="small muted">Shown as: “Imagine this catch on <i>…</i>”.</p>
+    <input type="text" data-frame value="${esc(db.config.frame)}" aria-label="Use frame">
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Data on this device</h3>
+    <div class="row">
+      <button data-act="exportjson">Back up (JSON)</button>
+      <label class="btn" style="display:inline-flex;align-items:center">Restore backup<input type="file" accept="application/json,.json" data-import class="hidden"></label>
+      <button class="danger" data-act="wipe">Delete all responses</button>
+    </div>
+  </div>`;
+}
+
+function bindSetupInputs() {
+  document.querySelectorAll("[data-force]").forEach(el => el.addEventListener("input", () => { db.config.codes[+el.dataset.force].force = el.value; save(); }));
+  document.querySelectorAll("[data-anchor]").forEach(el => el.addEventListener("input", () => { db.config.anchors[+el.dataset.anchor] = el.value; save(); }));
+  const fr = $("[data-frame]"); if (fr) fr.addEventListener("input", () => { db.config.frame = fr.value; save(); });
+  const imp = $("[data-import]");
+  if (imp) imp.addEventListener("change", async () => {
+    const f = imp.files && imp.files[0]; if (!f) return;
+    try {
+      const d = normalize(JSON.parse(await f.text()));
+      if (!confirm(`Replace everything on this device with the backup (${d.participants.length} responses)?`)) return;
+      db = d; save(); render();
+    } catch (e) { alert("That file is not a survey backup."); }
+  });
+}
+
+/* ---- participant flow */
+function startParticipant() {
+  const order = shuffle(codes());
+  cur = { id: nextId(), startedAt: nowISO(), finishedAt: null, order, sort: order.slice(),
+          weakest: null, preferred: null, strongest: null, noneAcceptable: false, tip: {}, match: {}, comment: "",
+          codesAtStart: codes().slice() };
+  go({ name: "run", step: "intro" });
+}
+function stepIndex() { return STEPS.indexOf(view.step); }
+function tipCodes() {
+  if (!cur || cur.noneAcceptable) return [];
+  return [...new Set([cur.weakest, cur.preferred].filter(Boolean))];
+}
+function marksProblem() {
+  if (cur.noneAcceptable) return "";
+  if (!cur.weakest || !cur.preferred || !cur.strongest) return "Choose one closure for each of the three questions.";
+  const p = c => cur.sort.indexOf(c);
+  if (!(p(cur.weakest) <= p(cur.preferred) && p(cur.preferred) <= p(cur.strongest)))
+    return "These don't match your sorted order: the weakest you'd accept should not come after your choice, and your choice should not come after the strongest you'd accept. Change a mark, or go back and re-sort.";
+  return "";
+}
+function stepReady() {
+  switch (view.step) {
+    case "marks": return !marksProblem();
+    case "tip": return tipCodes().every(c => cur.tip[c]);
+    case "match": return cur.order.every(c => cur.match[c] !== undefined);
+    default: return true;
+  }
+}
+
+function viewRun() {
+  const i = stepIndex();
+  const last = i === STEPS.length - 1;
+  nav([
+    i === 0 ? { label: "Cancel", act: "cancel", cls: "danger" } : { label: "Back", act: "back" },
+    { label: last ? "Finish" : "Next", act: last ? "finish" : "next", cls: "primary", disabled: !stepReady() },
+  ]);
+  const pct = Math.round((i / (STEPS.length - 1)) * 100);
+  const head = `<div class="spread small muted"><span>${esc(cur.id)}</span><span>Step ${i + 1} of ${STEPS.length}</span></div>
+                <div class="progress" aria-hidden="true"><i style="width:${pct}%"></i></div>`;
+  return head + ({ intro: runIntro, sort: runSort, marks: runMarks, tip: runTip, match: runMatch, comment: runComment }[view.step])();
+}
+
+function runIntro() {
+  return `
+  <h2>Welcome</h2>
+  <div class="card">
+    <p>You'll try ${cur.order.length} magnetic catches, labelled with letters. Open each one a few times. There are no right answers: we want to know what feels right to <b>you</b>.</p>
+    <p>Imagine the catch on <b>${esc(db.config.frame)}</b>.</p>
+    <p class="small muted">No names or personal details are recorded. The magnets can pinch: keep fingers clear of the gap.</p>
+  </div>
+  <div class="note"><b>Experimenter:</b> hand over the closures in this order<br>
+    <span style="font-size:22px; font-weight:700; letter-spacing:.08em">${cur.order.map(esc).join(" · ")}</span></div>`;
+}
+
+function runSort() {
+  const n = cur.sort.length;
+  return `
+  <h2>Sort them, weakest to strongest</h2>
+  <p class="muted">Open each catch as often as you like. Use the arrows to move a letter up or down.</p>
+  <div class="endlabel">Weakest</div>
+  <ol class="sortlist">
+    ${cur.sort.map((c, k) => `
+      <li>
+        <span class="pos">${k + 1}</span><span class="code">${esc(c)}</span>
+        <span class="arrows">
+          <button data-act="up" data-k="${k}" aria-label="Move ${esc(c)} weaker" ${k === 0 ? "disabled" : ""}>▲</button>
+          <button data-act="down" data-k="${k}" aria-label="Move ${esc(c)} stronger" ${k === n - 1 ? "disabled" : ""}>▼</button>
+        </span>
+      </li>`).join("")}
+  </ol>
+  <div class="endlabel">Strongest</div>`;
+}
+
+function markRow(field, title, help) {
+  return `
+  <div class="card">
+    <h3 style="margin-top:0">${title}</h3>
+    ${help ? `<p class="small muted">${help}</p>` : ""}
+    <div class="chips" role="group" aria-label="${esc(title)}">
+      ${cur.sort.map(c => `<button class="chip" data-act="mark" data-field="${field}" data-code="${esc(c)}" aria-pressed="${cur[field] === c}" ${cur.noneAcceptable ? "disabled" : ""}>${esc(c)}</button>`).join("")}
+    </div>
+  </div>`;
+}
+function runMarks() {
+  const prob = marksProblem();
+  const anyMark = cur.weakest || cur.preferred || cur.strongest;
+  return `
+  <h2>Which would you accept on your box?</h2>
+  <p class="muted">Letters are in your order, weakest first.</p>
+  ${markRow("weakest", "The weakest one you would still accept", "Anything weaker would feel too loose.")}
+  ${markRow("preferred", "The one you would choose", "")}
+  ${markRow("strongest", "The strongest one you would still accept", "Anything stronger would be too hard to open.")}
+  <label class="row small" style="margin:8px 2px"><input type="checkbox" data-none ${cur.noneAcceptable ? "checked" : ""} style="width:22px;height:22px"> None of them would be acceptable</label>
+  ${prob && anyMark ? `<div class="warn">${esc(prob)}</div>` : ""}`;
+}
+
+function runTip() {
+  const list = tipCodes();
+  if (!list.length) return `<h2>Tip test</h2><div class="note">Nothing to test: no closure was marked acceptable. Tap Next.</div>`;
+  return `
+  <h2>Tip test</h2>
+  <div class="note"><b>Experimenter:</b> fit each closure below to the box with its usual contents, turn the box upside down and shake it gently for about two seconds. Record what happened.</div>
+  ${list.map(c => `
+    <div class="card">
+      <div class="spread"><span class="code">${esc(c)}</span>
+        <span class="small muted">${[c === cur.weakest ? "weakest accepted" : "", c === cur.preferred ? "chosen" : ""].filter(Boolean).join(" · ")}</span></div>
+      <div class="pair" style="margin-top:10px">
+        <button class="held" data-act="tip" data-code="${esc(c)}" data-v="held" aria-pressed="${cur.tip[c] === "held"}">Lid stayed shut</button>
+        <button class="opened" data-act="tip" data-code="${esc(c)}" data-v="opened" aria-pressed="${cur.tip[c] === "opened"}">Lid opened</button>
+      </div>
+    </div>`).join("")}`;
+}
+
+function runMatch() {
+  const labels = matchLabels();
+  const left = cur.order.filter(c => cur.match[c] === undefined).length;
+  return `
+  <h2>Which familiar closure is each one most like?</h2>
+  <p class="muted">Compare the feel when opening. ${left ? `${left} left.` : "All done."}</p>
+  <div class="note"><b>Experimenter:</b> show or hand over the familiar closures now: ${db.config.anchors.map(esc).join(", ")}.</div>
+  <div class="card">
+    ${cur.order.map(c => `
+      <div class="matchrow">
+        <div class="row" style="margin-bottom:8px"><span class="code">${esc(c)}</span></div>
+        <div class="opts" role="group" aria-label="Closure ${esc(c)}">
+          ${labels.map((l, k) => `<button data-act="match" data-code="${esc(c)}" data-k="${k}" aria-pressed="${cur.match[c] === k}">${esc(l)}</button>`).join("")}
+        </div>
+      </div>`).join("")}
+  </div>`;
+}
+
+function runComment() {
+  return `
+  <h2>Anything else?</h2>
+  <p class="muted">Optional. For example, how opening felt, or what you would change. Please don't write your name.</p>
+  <textarea data-comment placeholder="Your comment">${esc(cur.comment)}</textarea>`;
+}
+
+function bindRunInputs() {
+  const t = $("[data-comment]"); if (t) t.addEventListener("input", () => { cur.comment = t.value; });
+  const n = $("[data-none]"); if (n) n.addEventListener("change", () => {
+    cur.noneAcceptable = n.checked;
+    if (n.checked) { cur.weakest = cur.preferred = cur.strongest = null; cur.tip = {}; }
+    render();
+  });
+}
+
+function viewDone() {
+  nav(null);
+  return `
+  <div class="card" style="text-align:center; padding:32px 16px">
+    <h2>Thank you!</h2>
+    <p class="muted">Response ${esc(view.id)} is saved on this device.</p>
+    <div class="big-actions" style="max-width:420px; margin:18px auto 0">
+      <button class="primary" data-act="start">Next participant (${esc(nextId())})</button>
+      <button data-act="home">Home</button>
+    </div>
+  </div>`;
+}
+
+/* ---- results */
+function analyse() {
+  const rows = db.participants.map(p => {
+    const lo = p.noneAcceptable ? NaN : forceOf(p.weakest);
+    const pr = p.noneAcceptable ? NaN : forceOf(p.preferred);
+    const hi = p.noneAcceptable ? NaN : forceOf(p.strongest);
+    return { p, lo, pr, hi, tau: kendall(p.sort || []) };
+  });
+  const anchorForces = [0, 1, 2, 3, 4].map(k => db.participants.flatMap(p => Object.entries(p.match || {}).filter(([, v]) => v === k).map(([c]) => forceOf(c))));
+  return { rows, anchorForces };
+}
+
+function chartSVG(rows) {
+  const ok = rows.filter(r => Number.isFinite(r.lo) && Number.isFinite(r.hi));
+  if (!ok.length) return "";
+  const allF = db.config.codes.map(c => parseFloat(c.force)).filter(Number.isFinite);
+  const max = Math.max(...allF, ...ok.map(r => r.hi)) * 1.08;
+  const W = 400, L = 40, R = 12, rowH = 22, T = 10, H = T + ok.length * rowH + 30;   // narrow: stays legible on phones
+  const x = v => L + (v / max) * (W - L - R);
+  const step = max > 12 ? 2 : 1;
+  let ticks = ""; for (let v = 0; v <= max; v += step) ticks += `<line x1="${x(v)}" x2="${x(v)}" y1="${T}" y2="${H - 24}" stroke="var(--line)"/><text x="${x(v)}" y="${H - 10}" text-anchor="middle">${v}</text>`;
+  const medLo = median(ok.map(r => r.lo)), medHi = median(ok.map(r => r.hi));
+  const band = Number.isFinite(medLo) && Number.isFinite(medHi) && medHi > medLo
+    ? `<rect x="${x(medLo)}" y="${T}" width="${x(medHi) - x(medLo)}" height="${H - 24 - T}" fill="var(--accent-soft)"/>` : "";
+  const bars = ok.map((r, i) => {
+    const y = T + i * rowH + rowH / 2;
+    return `<text x="${L - 8}" y="${y + 4}" text-anchor="end">${esc(r.p.id)}</text>
+            <line x1="${x(r.lo)}" x2="${x(r.hi)}" y1="${y}" y2="${y}" stroke="var(--accent)" stroke-width="6" stroke-linecap="round"/>
+            ${Number.isFinite(r.pr) ? `<circle cx="${x(r.pr)}" cy="${y}" r="6" fill="var(--card)" stroke="var(--bad)" stroke-width="3"/>` : ""}`;
+  }).join("");
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Acceptable range per participant in newtons">${band}${ticks}${bars}
+          <text x="${L - 12}" y="${H - 10}" text-anchor="end">N</text></svg>
+          <p class="small muted">Bars: weakest to strongest closure each person would accept. Ring: their choice. Shaded: median weakest-accepted to median strongest-accepted.</p>`;
+}
+
+function viewResults() {
+  nav([{ label: "Home", act: "home" }]);
+  const { rows, anchorForces } = analyse();
+  const n = rows.length;
+  if (!n) return `<h2>Results</h2><div class="card"><p class="muted">No responses yet.</p></div>`;
+  const forcesSet = db.config.codes.every(c => Number.isFinite(parseFloat(c.force)));
+  const lo = rows.map(r => r.lo), pr = rows.map(r => r.pr), hi = rows.map(r => r.hi);
+  const taus = rows.map(r => r.tau).filter(Number.isFinite);
+  const perfect = rows.filter(r => r.tau === 1).length;
+  const labels = matchLabels();
+  const tipAll = db.participants.flatMap(p => Object.entries(p.tip || {}));
+  const opened = tipAll.filter(([, v]) => v === "opened");
+  const anchorMed = anchorForces.map(median);
+  const monotone = [1, 2, 3].every((k, i, a) => i === 0 || !Number.isFinite(anchorMed[a[i - 1]]) || !Number.isFinite(anchorMed[k]) || anchorMed[k] >= anchorMed[a[i - 1]]);
+  return `
+  <h2>Results</h2>
+  ${forcesSet ? "" : `<div class="warn">Some closure forces are missing (Setup). Values in newtons appear only for closures with a force.</div>`}
+  <div class="stats">
+    <div class="stat"><span>Weakest accepted (median)</span><b>${fmtN(median(lo))} N</b><span>range ${fmtN(Math.min(...lo.filter(Number.isFinite)))}–${fmtN(Math.max(...lo.filter(Number.isFinite)))}</span></div>
+    <div class="stat"><span>Chosen (median)</span><b>${fmtN(median(pr))} N</b><span>range ${fmtN(Math.min(...pr.filter(Number.isFinite)))}–${fmtN(Math.max(...pr.filter(Number.isFinite)))}</span></div>
+    <div class="stat"><span>Strongest accepted (median)</span><b>${fmtN(median(hi))} N</b><span>range ${fmtN(Math.min(...hi.filter(Number.isFinite)))}–${fmtN(Math.max(...hi.filter(Number.isFinite)))}</span></div>
+  </div>
+  <div class="card">${chartSVG(rows) || `<p class="muted small">The chart appears once forces are entered for the marked closures.</p>`}</div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Can people tell the closures apart?</h3>
+    <p class="small">Sort agreement with the measured forces (Kendall's τ, 1 = perfect): median <b>${fmtN(median(taus))}</b>; ${perfect} of ${n} sorted perfectly.</p>
+    <p class="small muted">If neighbouring closures are often swapped, their forces are too close for people to feel the difference.</p>
+    <h3>Tip test</h3>
+    <p class="small">${tipAll.length} tests, ${opened.length} opened${opened.length ? ": " + opened.map(([c]) => esc(c)).join(", ") : ""}.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Felt like…</h3>
+    <div class="scroll"><table>
+      <tr><th>Answer</th><th class="num">Times chosen</th><th class="num">Median force (N)</th></tr>
+      ${labels.map((l, k) => `<tr><td>${esc(l)}</td><td class="num">${anchorForces[k].length}</td><td class="num">${fmtN(anchorMed[k])}</td></tr>`).join("")}
+    </table></div>
+    <p class="small ${monotone ? "muted" : ""}">${monotone ? "The anchors come out in the expected order." : "<b>Check:</b> the anchors' median forces are not in weakest-to-strongest order, so the cues may not be working."}</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Responses</h3>
+    <div class="scroll"><table>
+      <tr><th>ID</th><th>Sorted (weak → strong)</th><th class="num">Accept from</th><th class="num">Choose</th><th class="num">Accept to</th><th class="num">τ</th><th></th></tr>
+      ${rows.map(r => `<tr>
+        <td>${esc(r.p.id)}</td>
+        <td>${(r.p.sort || []).map(esc).join(" ")}</td>
+        <td class="num">${r.p.noneAcceptable ? "none" : esc(r.p.weakest) + " · " + fmtN(r.lo)}</td>
+        <td class="num">${r.p.noneAcceptable ? "" : esc(r.p.preferred) + " · " + fmtN(r.pr)}</td>
+        <td class="num">${r.p.noneAcceptable ? "" : esc(r.p.strongest) + " · " + fmtN(r.hi)}</td>
+        <td class="num">${fmtN(r.tau)}</td>
+        <td><button class="ghost danger small" data-act="delp" data-id="${esc(r.p.id)}" aria-label="Delete ${esc(r.p.id)}">✕</button></td>
+      </tr>`).join("")}
+    </table></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Export</h3>
+    <div class="row">
+      <button class="primary" data-act="csvwide">CSV: one row per person</button>
+      <button data-act="csvlong">CSV: one row per closure</button>
+      <button data-act="exportjson">Back up (JSON)</button>
+    </div>
+    <p class="small muted">Comments are in the per-person CSV.</p>
+  </div>`;
+}
+
+function csvWide() {
+  const cs = codes();
+  const labels = matchLabels();
+  const head = ["participant", "started", "finished", "presentation_order", "sorted_weak_to_strong", "kendall_tau",
+    "none_acceptable", "weakest_accepted", "chosen", "strongest_accepted", "weakest_accepted_N", "chosen_N", "strongest_accepted_N",
+    ...cs.map(c => "tip_" + c), ...cs.map(c => "match_" + c), "comment"];
+  const rows = db.participants.map(p => [
+    p.id, p.startedAt, p.finishedAt, (p.order || []).join(" "), (p.sort || []).join(" "), fmtN(kendall(p.sort || [])),
+    p.noneAcceptable ? "yes" : "no", p.weakest || "", p.preferred || "", p.strongest || "",
+    p.noneAcceptable ? "" : fmtN(forceOf(p.weakest)), p.noneAcceptable ? "" : fmtN(forceOf(p.preferred)), p.noneAcceptable ? "" : fmtN(forceOf(p.strongest)),
+    ...cs.map(c => (p.tip || {})[c] || ""), ...cs.map(c => { const k = (p.match || {})[c]; return k === undefined ? "" : labels[k]; }),
+    p.comment || ""]);
+  download(`catch-survey-people-${stamp()}.csv`, toCSV([head, ...rows]), "text/csv");
+}
+function csvLong() {
+  const labels = matchLabels();
+  const head = ["participant", "code", "force_N", "presented_position", "sorted_position", "is_weakest_accepted", "is_chosen",
+    "is_strongest_accepted", "tip", "match_index", "match_label"];
+  const rows = db.participants.flatMap(p => (p.order || []).map(c => {
+    const k = (p.match || {})[c];
+    return [p.id, c, fmtN(forceOf(c)), p.order.indexOf(c) + 1, (p.sort || []).indexOf(c) + 1,
+      p.weakest === c ? 1 : 0, p.preferred === c ? 1 : 0, p.strongest === c ? 1 : 0, (p.tip || {})[c] || "",
+      k === undefined ? "" : k, k === undefined ? "" : labels[k]];
+  }));
+  download(`catch-survey-closures-${stamp()}.csv`, toCSV([head, ...rows]), "text/csv");
+}
+
+/* ---------------------------------------------------------------- actions */
+const actions = {
+  home: () => go({ name: "home" }),
+  setup: () => go({ name: "setup" }),
+  results: () => go({ name: "results" }),
+  start: () => startParticipant(),
+  cancel: () => { if (confirm("Discard this participant's answers?")) { cur = null; go({ name: "home" }); } },
+  back: () => { const i = stepIndex(); if (i > 0) go({ name: "run", step: STEPS[i - 1] }); },
+  next: () => { if (!stepReady()) return; const i = stepIndex(); go({ name: "run", step: STEPS[i + 1] }); },
+  finish: () => {
+    cur.finishedAt = nowISO();
+    // Keep only tip results for closures still marked.
+    const keep = new Set(tipCodes()); Object.keys(cur.tip).forEach(c => { if (!keep.has(c)) delete cur.tip[c]; });
+    db.participants.push(cur); save();
+    const id = cur.id; cur = null; go({ name: "done", id });
+  },
+  up: d => { const k = +d.k; if (k > 0) { [cur.sort[k - 1], cur.sort[k]] = [cur.sort[k], cur.sort[k - 1]]; render(); } },
+  down: d => { const k = +d.k; if (k < cur.sort.length - 1) { [cur.sort[k + 1], cur.sort[k]] = [cur.sort[k], cur.sort[k + 1]]; render(); } },
+  mark: d => { cur[d.field] = cur[d.field] === d.code ? null : d.code; render(); },
+  tip: d => { cur.tip[d.code] = d.v; render(); },
+  match: d => { cur.match[d.code] = +d.k; render(); },
+  addcode: () => {
+    const used = new Set(codes());
+    const c = [...LETTERS].find(l => !used.has(l));
+    if (!c) return;
+    if (db.participants.length && !confirm("Responses exist. Add a closure anyway?")) return;
+    db.config.codes.push({ code: c, force: "" }); save(); render();
+  },
+  delcode: d => {
+    const c = db.config.codes[+d.i];
+    if (!confirm(`Remove closure ${c.code}?${db.participants.length ? " Earlier responses that used it keep their answers, but its force will no longer be known." : ""}`)) return;
+    db.config.codes.splice(+d.i, 1); save(); render();
+  },
+  delp: d => { if (confirm(`Delete response ${d.id}? This cannot be undone.`)) { db.participants = db.participants.filter(p => p.id !== d.id); save(); render(); } },
+  wipe: () => { if (confirm("Delete ALL responses on this device? Export first if you need them. This cannot be undone.")) { db.participants = []; save(); render(); } },
+  exportjson: () => download(`catch-survey-backup-${stamp()}.json`, JSON.stringify(db, null, 2), "application/json"),
+  csvwide: () => csvWide(),
+  csvlong: () => csvLong(),
+};
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-act]");
+  if (!el || el.disabled) return;
+  const fn = actions[el.dataset.act];
+  if (fn) fn(el.dataset);
+});
+window.addEventListener("beforeunload", e => { if (cur) { e.preventDefault(); e.returnValue = ""; } });
+
+/* offline use after the first visit (HTTPS or localhost only) */
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+render();
+</script>
+</body>
+</html>
