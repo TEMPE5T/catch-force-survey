@@ -163,7 +163,7 @@ svg.chart text { fill: var(--muted); font-size: 12px; font-family: inherit; }
 <script>
 "use strict";
 /* ---------------------------------------------------------------- storage (this device only) */
-const KEY = "catchSurvey.v1";
+const KEY = "catchSurvey.v2";          // v2 (17 Nov): sort and shake steps removed, matching asked per comparison closure
 const LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 const GRACE_S = 30;                    // "Still there?" countdown after the idle limit
 const DONE_RETURN_S = 12;              // thank-you screen returns to the welcome screen
@@ -218,15 +218,6 @@ const codes = () => db.config.codes.map(c => c.code);
 const forceOf = code => { const c = db.config.codes.find(x => x.code === code); const v = c ? parseFloat(c.force) : NaN; return Number.isFinite(v) ? v : NaN; };
 const fmtN = v => Number.isFinite(v) ? v.toFixed(2) : "–";
 const nowISO = () => new Date().toISOString();
-function shuffle(a) {
-  const b = a.slice();
-  for (let i = b.length - 1; i > 0; i--) {
-    let r;
-    if (window.crypto && crypto.getRandomValues) { const u = new Uint32Array(1); crypto.getRandomValues(u); r = u[0] / 4294967296; } else r = Math.random();
-    const j = Math.floor(r * (i + 1)); [b[i], b[j]] = [b[j], b[i]];
-  }
-  return b;
-}
 function nextId() {
   const n = db.participants.reduce((m, p) => Math.max(m, parseInt(String(p.id).replace(/\D/g, ""), 10) || 0), 0) + 1;
   return "P" + String(n).padStart(2, "0");
@@ -239,21 +230,7 @@ function median(xs) {
 }
 const finiteMin = xs => { const v = xs.filter(Number.isFinite); return v.length ? Math.min(...v) : NaN; };
 const finiteMax = xs => { const v = xs.filter(Number.isFinite); return v.length ? Math.max(...v) : NaN; };
-function matchLabels() {
-  const a = db.config.anchors;
-  return ["Weaker than the " + a[0].toLowerCase(), "Like the " + a[0].toLowerCase(), "Like the " + a[1].toLowerCase(),
-          "Like the " + a[2].toLowerCase(), "Stronger than the " + a[2].toLowerCase()];
-}
-/* Kendall's tau-a between a participant's weakest-to-strongest order and the measured forces (pairs with equal force skipped). */
-function kendall(order) {
-  let c = 0, d = 0;
-  for (let i = 0; i < order.length; i++) for (let j = i + 1; j < order.length; j++) {
-    const fi = forceOf(order[i]), fj = forceOf(order[j]);
-    if (!Number.isFinite(fi) || !Number.isFinite(fj) || fi === fj) continue;
-    if (fj > fi) c++; else d++;
-  }
-  return c + d ? (c - d) / (c + d) : NaN;
-}
+const NONE_CLOSE = "none";               // match answer: no lettered box feels like this comparison closure
 function download(name, text, type) {
   const blob = new Blob([text], { type });
   const a = document.createElement("a");
@@ -270,7 +247,7 @@ let view = { name: "welcome" };
 let cur = null;                       // participant in progress
 let staffOpen = false;                // unlocked until "Back to the welcome screen"
 let consentTicked = false;
-const STEPS = ["sort", "marks", "tip", "match", "comment"];
+const STEPS = ["marks", "match", "comment"];
 const STAFF_VIEWS = new Set(["staff", "setup", "results", "labels"]);
 
 function go(v) {
@@ -282,7 +259,7 @@ function renderMeta() {
   const n = db.participants.length;
   $("#meta").textContent = staffOpen || view.name === "gate"
     ? n + (n === 1 ? " response" : " responses") + (storageOK ? "" : " · NOT SAVED")
-    : "About 5 minutes · anonymous";
+    : "About 3 minutes · anonymous";
 }
 
 function nav(buttons) {
@@ -314,8 +291,8 @@ function viewWelcome() {
   <div class="card hero">
     <h2>How strong should a box catch be?</h2>
     <p>Help a student project choose the right pull for a magnetic catch. You'll open ${n} small boxes on this table,
-       labelled ${esc(codes()[0])} to ${esc(codes()[n - 1])}, and answer a few quick questions.</p>
-    <p class="muted small">About 5 minutes. No names or personal details are collected. You can stop at any time and your answers are deleted.
+       labelled ${esc(codes()[0])} to ${esc(codes()[n - 1])}, and answer three quick questions.</p>
+    <p class="muted small">About 3 minutes. No names or personal details are collected. You can stop at any time and your answers are deleted.
        The magnets can pinch: keep fingers clear of the gap.</p>
     <label class="consent"><input type="checkbox" id="consent" ${consentTicked ? "checked" : ""}>
       <span>I am 18 or older, I haven't taken this survey before, and I agree to take part.</span></label>
@@ -330,30 +307,18 @@ function bindWelcome() {
 function startParticipant() {
   if (!consentTicked) return;
   consentTicked = false;
-  const order = shuffle(codes());
-  cur = { id: nextId(), startedAt: nowISO(), finishedAt: null, order, sort: order.slice(),
-          weakest: null, preferred: null, strongest: null, noneAcceptable: false, tip: {}, match: {}, comment: "" };
+  // Boxes are listed in letter order, the same as on the table. Letters must not follow force order: staff assign
+  // them to the ladder at random (see the Staff screen), so a letter's position gives nothing away.
+  cur = { id: nextId(), startedAt: nowISO(), finishedAt: null, boxes: codes().slice(),
+          weakest: null, preferred: null, strongest: null, noneAcceptable: false, match: {}, comment: "" };
   touch();
-  go({ name: "run", step: "sort" });
+  go({ name: "run", step: STEPS[0] });
 }
 function stepIndex() { return STEPS.indexOf(view.step); }
-function tipCodes() {
-  if (!cur || cur.noneAcceptable) return [];
-  return [...new Set([cur.weakest, cur.preferred].filter(Boolean))];
-}
-function marksProblem() {
-  if (cur.noneAcceptable) return "";
-  if (!cur.weakest || !cur.preferred || !cur.strongest) return "Choose one box for each of the three questions.";
-  const p = c => cur.sort.indexOf(c);
-  if (!(p(cur.weakest) <= p(cur.preferred) && p(cur.preferred) <= p(cur.strongest)))
-    return "These don't match your order from the last step: the weakest you'd accept can't come after your choice, and your choice can't come after the strongest you'd accept. Change a pick, or tap Back and re-sort.";
-  return "";
-}
 function stepReady() {
   switch (view.step) {
-    case "marks": return !marksProblem();
-    case "tip": return tipCodes().every(c => cur.tip[c]);
-    case "match": return cur.order.every(c => cur.match[c] !== undefined);
+    case "marks": return cur.noneAcceptable || !!(cur.weakest && cur.preferred && cur.strongest);
+    case "match": return db.config.anchors.every((_, i) => cur.match[i] !== undefined);
     default: return true;
   }
 }
@@ -369,27 +334,7 @@ function viewRun() {
   const head = `<div class="spread small muted"><span>Step ${i + 1} of ${STEPS.length}</span>
                 ${i > 0 ? `<button class="ghost danger small" data-act="quit" style="min-height:36px;padding:4px 10px">Stop and delete my answers</button>` : ""}</div>
                 <div class="progress" aria-hidden="true"><i style="width:${pct}%"></i></div>`;
-  return head + ({ sort: runSort, marks: runMarks, tip: runTip, match: runMatch, comment: runComment }[view.step])();
-}
-
-function runSort() {
-  const n = cur.sort.length;
-  return `
-  <h2>Put the boxes in order, weakest to strongest</h2>
-  <p>Open each lettered box on the table a few times. Imagine the catch on <b>${esc(db.config.frame)}</b>.
-     Then use the arrows to move each letter up (weaker) or down (stronger).</p>
-  <div class="endlabel">Weakest</div>
-  <ol class="sortlist">
-    ${cur.sort.map((c, k) => `
-      <li>
-        <span class="pos">${k + 1}</span><span class="code">${esc(c)}</span>
-        <span class="arrows">
-          <button data-act="up" data-k="${k}" aria-label="Move ${esc(c)} weaker" ${k === 0 ? "disabled" : ""}>▲</button>
-          <button data-act="down" data-k="${k}" aria-label="Move ${esc(c)} stronger" ${k === n - 1 ? "disabled" : ""}>▼</button>
-        </span>
-      </li>`).join("")}
-  </ol>
-  <div class="endlabel">Strongest</div>`;
+  return head + ({ marks: runMarks, match: runMatch, comment: runComment }[view.step])();
 }
 
 function markRow(field, title, help) {
@@ -398,59 +343,33 @@ function markRow(field, title, help) {
     <h3 style="margin-top:0">${title}</h3>
     ${help ? `<p class="small muted">${help}</p>` : ""}
     <div class="chips" role="group" aria-label="${esc(title)}">
-      ${cur.sort.map(c => `<button class="chip" data-act="mark" data-field="${field}" data-code="${esc(c)}" aria-pressed="${cur[field] === c}" ${cur.noneAcceptable ? "disabled" : ""}>${esc(c)}</button>`).join("")}
+      ${cur.boxes.map(c => `<button class="chip" data-act="mark" data-field="${field}" data-code="${esc(c)}" aria-pressed="${cur[field] === c}" ${cur.noneAcceptable ? "disabled" : ""}>${esc(c)}</button>`).join("")}
     </div>
   </div>`;
 }
 function runMarks() {
-  const prob = marksProblem();
-  const anyMark = cur.weakest || cur.preferred || cur.strongest;
   return `
   <h2>Which would you accept on your own box?</h2>
-  <p class="muted">The letters are in your order, weakest first. Open the boxes again if you like.</p>
-  ${markRow("weakest", "The weakest one you would still accept", "Anything weaker would feel too loose.")}
+  <p>Open each lettered box on the table a few times. Imagine the catch on <b>${esc(db.config.frame)}</b>. Then pick:</p>
+  ${markRow("weakest", "The weakest one you would still accept", "Anything weaker would feel too loose to trust.")}
   ${markRow("preferred", "The one you would choose", "")}
   ${markRow("strongest", "The strongest one you would still accept", "Anything stronger would be too hard to open.")}
-  <label class="row small" style="margin:8px 2px"><input type="checkbox" data-none ${cur.noneAcceptable ? "checked" : ""} style="width:24px;height:24px"> None of them would be acceptable</label>
-  ${prob && anyMark ? `<div class="warn">${esc(prob)}</div>` : ""}`;
-}
-
-function runTip() {
-  const list = tipCodes();
-  if (!list.length) return `<h2>Shake test</h2><div class="note">Nothing to test here. Tap Next.</div>`;
-  return `
-  <h2>Shake test</h2>
-  <p>For each box below: hold it over the table, turn it <b>upside down</b>, and give it a <b>gentle shake</b> for about two seconds. Then put it back the right way up.</p>
-  ${list.map(c => `
-    <div class="card">
-      <div class="spread"><span class="code">${esc(c)}</span>
-        <span class="small muted">${[c === cur.weakest ? "weakest you'd accept" : "", c === cur.preferred ? "your choice" : ""].filter(Boolean).join(" · ")}</span></div>
-      <p style="margin:10px 0 8px">Did the lid of box ${esc(c)} stay shut?</p>
-      <div class="pair">
-        <button class="held" data-act="tip" data-code="${esc(c)}" data-v="held" aria-pressed="${cur.tip[c] === "held"}">Stayed shut</button>
-        <button class="opened" data-act="tip" data-code="${esc(c)}" data-v="opened" aria-pressed="${cur.tip[c] === "opened"}">It opened</button>
-      </div>
-    </div>`).join("")}`;
+  <label class="row small" style="margin:8px 2px"><input type="checkbox" data-none ${cur.noneAcceptable ? "checked" : ""} style="width:24px;height:24px"> None of them would be acceptable</label>`;
 }
 
 function runMatch() {
-  const labels = matchLabels();
-  const a = db.config.anchors.map(x => x.toLowerCase());
-  const left = cur.order.filter(c => cur.match[c] === undefined).length;
+  const a = db.config.anchors;
   return `
-  <h2>What does each one feel like?</h2>
-  <p>At the end of the table are three everyday closures for comparison: a ${esc(a[0])}, an ${esc(a[1])} and a ${esc(a[2])}.
-     Open them too, then pick the one each lettered box feels most like when you open it.</p>
-  <p class="small muted">${left ? `${left} left` : "All done"}</p>
-  <div class="card">
-    ${cur.order.map(c => `
-      <div class="matchrow">
-        <div class="row" style="margin-bottom:8px"><span class="code">${esc(c)}</span></div>
-        <div class="opts" role="group" aria-label="Box ${esc(c)}">
-          ${labels.map((l, k) => `<button data-act="match" data-code="${esc(c)}" data-k="${k}" aria-pressed="${cur.match[c] === k}">${esc(l)}</button>`).join("")}
-        </div>
-      </div>`).join("")}
-  </div>`;
+  <h2>Which box feels most like…</h2>
+  <p>At the end of the table are three everyday closures. Open each one, then pick the lettered box that feels most like it.</p>
+  ${a.map((name, i) => `
+    <div class="card">
+      <h3 style="margin-top:0">…the ${esc(name.toLowerCase())}?</h3>
+      <div class="chips" role="group" aria-label="Most like the ${esc(name)}">
+        ${cur.boxes.map(c => `<button class="chip" data-act="match" data-i="${i}" data-code="${esc(c)}" aria-pressed="${cur.match[i] === c}">${esc(c)}</button>`).join("")}
+        <button class="chip" style="font-size:15px;font-weight:600" data-act="match" data-i="${i}" data-code="${NONE_CLOSE}" aria-pressed="${cur.match[i] === NONE_CLOSE}">None is close</button>
+      </div>
+    </div>`).join("")}`;
 }
 
 function runComment() {
@@ -465,7 +384,7 @@ function bindRunInputs() {
   const t = $("[data-comment]"); if (t) t.addEventListener("input", () => { cur.comment = t.value; });
   const n = $("[data-none]"); if (n) n.addEventListener("change", () => {
     cur.noneAcceptable = n.checked;
-    if (n.checked) { cur.weakest = cur.preferred = cur.strongest = null; cur.tip = {}; }
+    if (n.checked) { cur.weakest = cur.preferred = cur.strongest = null; }
     render();
   });
 }
@@ -552,7 +471,8 @@ function viewStaff() {
   <div class="card small">
     <h3 style="margin-top:0">Running the table unattended</h3>
     <ul style="margin:0;padding-left:20px">
-      <li>Mount each catch on its own identical box with the same contents, and label the boxes with the codes in Setup. Put the three comparison closures (${db.config.anchors.map(esc).join(", ")}) at the end of the table.</li>
+      <li>Mount each catch on its own identical box with the same contents. <b>Assign the letters to the boxes at random</b>, not in force order, and set the boxes out in letter order. Put the three comparison closures (${db.config.anchors.map(esc).join(", ")}) at the end of the table.</li>
+      <li>The tip test is not part of the survey: turn each box over and shake it yourself, the same way each time, and record the result with its force.</li>
       <li>Lock the device to this page: Guided Access on an iPad, screen pinning on Android, or kiosk mode in a desktop browser.</li>
       <li>A participant who stops, or leaves the screen untouched for ${db.config.idleSeconds} s plus ${GRACE_S} s of warning, is reset; their answers are deleted and only counted.</li>
       <li>Export or back up at the end of each day.</li>
@@ -639,15 +559,25 @@ function viewLabels() {
 }
 
 /* ---- results */
+/* Each response is checked against the measured forces: weakest-accepted <= chosen <= strongest-accepted (N).
+   Out-of-order picks (careless or confused, which is likelier unattended) are flagged and kept out of the medians. */
 function analyse() {
+  const fs = db.config.codes.map(c => parseFloat(c.force)).filter(Number.isFinite);
+  const fMin = fs.length ? Math.min(...fs) : NaN, fMax = fs.length ? Math.max(...fs) : NaN;
   const rows = db.participants.map(p => {
     const lo = p.noneAcceptable ? NaN : forceOf(p.weakest);
     const pr = p.noneAcceptable ? NaN : forceOf(p.preferred);
     const hi = p.noneAcceptable ? NaN : forceOf(p.strongest);
-    return { p, lo, pr, hi, tau: kendall(p.sort || []) };
+    const known = [lo, pr, hi].every(Number.isFinite);
+    const consistent = p.noneAcceptable || !known || (lo <= pr && pr <= hi);
+    return { p, lo, pr, hi, known, consistent };
   });
-  const anchorForces = [0, 1, 2, 3, 4].map(k => db.participants.flatMap(p => Object.entries(p.match || {}).filter(([, v]) => v === k).map(([c]) => forceOf(c))));
-  return { rows, anchorForces };
+  const anchors = db.config.anchors.map((name, i) => {
+    const picks = db.participants.map(p => (p.match || {})[i]).filter(v => v !== undefined);
+    const none = picks.filter(v => v === NONE_CLOSE).length;
+    return { name, n: picks.length - none, none, med: median(picks.filter(v => v !== NONE_CLOSE).map(forceOf)) };
+  });
+  return { rows, anchors, fMin, fMax };
 }
 
 function chartSVG(rows) {
@@ -675,43 +605,41 @@ function chartSVG(rows) {
 
 function viewResults() {
   nav([{ label: "Back", act: "staff" }]);
-  const { rows, anchorForces } = analyse();
+  const { rows, anchors, fMin, fMax } = analyse();
   const n = rows.length;
   const dropped = `${db.counts.withdrawn} stopped, ${db.counts.timedOut} walked away (answers deleted)`;
   if (!n) return `<h2>Results</h2><div class="card"><p class="muted">No completed responses yet. ${dropped}.</p></div>`;
   const forcesSet = db.config.codes.every(c => Number.isFinite(parseFloat(c.force)));
-  const lo = rows.map(r => r.lo), pr = rows.map(r => r.pr), hi = rows.map(r => r.hi);
-  const taus = rows.map(r => r.tau).filter(Number.isFinite);
-  const perfect = rows.filter(r => r.tau === 1).length;
-  const labels = matchLabels();
-  const tipAll = db.participants.flatMap(p => Object.entries(p.tip || {}));
-  const opened = tipAll.filter(([, v]) => v === "opened");
-  const anchorMed = anchorForces.map(median);
-  const inOrder = [anchorMed[1], anchorMed[2], anchorMed[3]].filter(Number.isFinite).every((v, i, a) => i === 0 || v >= a[i - 1]);
+  const use = rows.filter(r => r.consistent && !r.p.noneAcceptable);
+  const flagged = rows.filter(r => !r.consistent).length, noneAcc = rows.filter(r => r.p.noneAcceptable).length;
+  const lo = use.map(r => r.lo), pr = use.map(r => r.pr), hi = use.map(r => r.hi);
+  const atTop = use.filter(r => r.hi === fMax).length, atBottom = use.filter(r => r.lo === fMin).length;
+  const am = anchors.map(a => a.med).filter(Number.isFinite);
+  const inOrder = am.every((v, i) => i === 0 || v >= am[i - 1]);
   return `
   <h2>Results</h2>
-  <p class="small muted">${n} completed · ${dropped}</p>
+  <p class="small muted">${n} completed (${use.length} used for the window, ${flagged} flagged, ${noneAcc} found none acceptable) · ${dropped}</p>
   ${forcesSet ? "" : `<div class="warn">Some box forces are missing (Setup). Values in newtons appear only for boxes with a force.</div>`}
   <div class="stats">
     <div class="stat"><span>Weakest accepted (median)</span><b>${fmtN(median(lo))} N</b><span>range ${fmtN(finiteMin(lo))}–${fmtN(finiteMax(lo))}</span></div>
     <div class="stat"><span>Chosen (median)</span><b>${fmtN(median(pr))} N</b><span>range ${fmtN(finiteMin(pr))}–${fmtN(finiteMax(pr))}</span></div>
     <div class="stat"><span>Strongest accepted (median)</span><b>${fmtN(median(hi))} N</b><span>range ${fmtN(finiteMin(hi))}–${fmtN(finiteMax(hi))}</span></div>
   </div>
-  <div class="card">${chartSVG(rows) || `<p class="muted small">The chart appears once forces are entered for the marked boxes.</p>`}</div>
+  <div class="card">${chartSVG(use) || `<p class="muted small">The chart appears once forces are entered for the marked boxes.</p>`}</div>
 
   <div class="card">
-    <h3 style="margin-top:0">Can people tell the boxes apart?</h3>
-    <p class="small">Sort agreement with the measured forces (Kendall's τ, 1 = perfect): median <b>${fmtN(median(taus))}</b>; ${perfect} of ${n} sorted perfectly.</p>
-    <p class="small muted">If neighbouring boxes are often swapped, their forces are too close for people to feel the difference.</p>
-    <h3>Shake test</h3>
-    <p class="small">${tipAll.length} tests, ${opened.length} opened${opened.length ? ": " + opened.map(([c]) => esc(c)).join(", ") : ""}.</p>
+    <h3 style="margin-top:0">Is the window inside the ladder?</h3>
+    <p class="small">${atBottom} of ${use.length} accept even the weakest box (${fmtN(fMin)} N); ${atTop} of ${use.length} accept even the strongest (${fmtN(fMax)} N).</p>
+    <p class="small muted">If many do, that edge of the window lies beyond the ladder: report it as “≤ ${fmtN(fMin)} N” or “≥ ${fmtN(fMax)} N”, or add a weaker or stronger box.</p>
+    <h3>Flagged responses</h3>
+    <p class="small">${flagged} of ${n}: picks out of order in measured force (weakest accepted stronger than the choice, or the choice stronger than the strongest accepted). They are kept in the exports but left out of the medians.</p>
   </div>
 
   <div class="card">
-    <h3 style="margin-top:0">Felt like…</h3>
+    <h3 style="margin-top:0">Felt most like…</h3>
     <div class="scroll"><table>
-      <tr><th>Answer</th><th class="num">Times chosen</th><th class="num">Median force (N)</th></tr>
-      ${labels.map((l, k) => `<tr><td>${esc(l)}</td><td class="num">${anchorForces[k].length}</td><td class="num">${fmtN(anchorMed[k])}</td></tr>`).join("")}
+      <tr><th>Comparison closure</th><th class="num">Box picked</th><th class="num">“None is close”</th><th class="num">Median force (N)</th></tr>
+      ${anchors.map(a => `<tr><td>${esc(a.name)}</td><td class="num">${a.n}</td><td class="num">${a.none}</td><td class="num">${fmtN(a.med)}</td></tr>`).join("")}
     </table></div>
     <p class="small ${inOrder ? "muted" : ""}">${inOrder ? "The comparison closures come out in the expected order." : "<b>Check:</b> the comparison closures' median forces are not in weakest-to-strongest order, so the cues may not be working."}</p>
   </div>
@@ -719,14 +647,13 @@ function viewResults() {
   <div class="card">
     <h3 style="margin-top:0">Responses</h3>
     <div class="scroll"><table>
-      <tr><th>ID</th><th>Sorted (weak → strong)</th><th class="num">Accept from</th><th class="num">Choose</th><th class="num">Accept to</th><th class="num">τ</th><th></th></tr>
+      <tr><th>ID</th><th class="num">Accept from</th><th class="num">Choose</th><th class="num">Accept to</th><th>Flag</th><th></th></tr>
       ${rows.map(r => `<tr>
         <td>${esc(r.p.id)}</td>
-        <td>${(r.p.sort || []).map(esc).join(" ")}</td>
         <td class="num">${r.p.noneAcceptable ? "none" : esc(r.p.weakest) + " · " + fmtN(r.lo)}</td>
         <td class="num">${r.p.noneAcceptable ? "" : esc(r.p.preferred) + " · " + fmtN(r.pr)}</td>
         <td class="num">${r.p.noneAcceptable ? "" : esc(r.p.strongest) + " · " + fmtN(r.hi)}</td>
-        <td class="num">${fmtN(r.tau)}</td>
+        <td>${r.consistent ? "" : `<span class="pill bad">out of order</span>`}</td>
         <td><button class="ghost danger small" data-act="delp" data-id="${esc(r.p.id)}" aria-label="Delete ${esc(r.p.id)}">✕</button></td>
       </tr>`).join("")}
     </table></div>
@@ -744,30 +671,26 @@ function viewResults() {
 }
 
 function csvWide() {
-  const cs = codes();
-  const labels = matchLabels();
-  const head = ["participant", "started", "finished", "presentation_order", "sorted_weak_to_strong", "kendall_tau",
-    "none_acceptable", "weakest_accepted", "chosen", "strongest_accepted", "weakest_accepted_N", "chosen_N", "strongest_accepted_N",
-    ...cs.map(c => "shake_" + c), ...cs.map(c => "match_" + c), "comment"];
-  const rows = db.participants.map(p => [
-    p.id, p.startedAt, p.finishedAt, (p.order || []).join(" "), (p.sort || []).join(" "), fmtN(kendall(p.sort || [])),
-    p.noneAcceptable ? "yes" : "no", p.weakest || "", p.preferred || "", p.strongest || "",
-    p.noneAcceptable ? "" : fmtN(forceOf(p.weakest)), p.noneAcceptable ? "" : fmtN(forceOf(p.preferred)), p.noneAcceptable ? "" : fmtN(forceOf(p.strongest)),
-    ...cs.map(c => (p.tip || {})[c] || ""), ...cs.map(c => { const k = (p.match || {})[c]; return k === undefined ? "" : labels[k]; }),
-    p.comment || ""]);
-  download(`catch-survey-people-${stamp()}.csv`, toCSV([head, ...rows]), "text/csv");
+  const { rows } = analyse();
+  const an = db.config.anchors;
+  const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+  const head = ["participant", "started", "finished", "none_acceptable", "weakest_accepted", "chosen", "strongest_accepted",
+    "weakest_accepted_N", "chosen_N", "strongest_accepted_N", "consistent",
+    ...an.flatMap(a => ["like_" + slug(a), "like_" + slug(a) + "_N"]), "comment"];
+  const out = rows.map(r => { const p = r.p; return [
+    p.id, p.startedAt, p.finishedAt, p.noneAcceptable ? "yes" : "no", p.weakest || "", p.preferred || "", p.strongest || "",
+    p.noneAcceptable ? "" : fmtN(r.lo), p.noneAcceptable ? "" : fmtN(r.pr), p.noneAcceptable ? "" : fmtN(r.hi), r.consistent ? "yes" : "no",
+    ...an.flatMap((_, i) => { const v = (p.match || {})[i]; return [v || "", v && v !== NONE_CLOSE ? fmtN(forceOf(v)) : ""]; }),
+    p.comment || ""]; });
+  download(`catch-survey-people-${stamp()}.csv`, toCSV([head, ...out]), "text/csv");
 }
 function csvLong() {
-  const labels = matchLabels();
-  const head = ["participant", "code", "force_N", "listed_position", "sorted_position", "is_weakest_accepted", "is_chosen",
-    "is_strongest_accepted", "shake", "match_index", "match_label"];
-  const rows = db.participants.flatMap(p => (p.order || []).map(c => {
-    const k = (p.match || {})[c];
-    return [p.id, c, fmtN(forceOf(c)), p.order.indexOf(c) + 1, (p.sort || []).indexOf(c) + 1,
-      p.weakest === c ? 1 : 0, p.preferred === c ? 1 : 0, p.strongest === c ? 1 : 0, (p.tip || {})[c] || "",
-      k === undefined ? "" : k, k === undefined ? "" : labels[k]];
-  }));
-  download(`catch-survey-boxes-${stamp()}.csv`, toCSV([head, ...rows]), "text/csv");
+  const an = db.config.anchors;
+  const head = ["participant", "code", "force_N", "is_weakest_accepted", "is_chosen", "is_strongest_accepted", "felt_like"];
+  const out = db.participants.flatMap(p => (p.boxes || codes()).map(c => [
+    p.id, c, fmtN(forceOf(c)), p.weakest === c ? 1 : 0, p.preferred === c ? 1 : 0, p.strongest === c ? 1 : 0,
+    an.filter((_, i) => (p.match || {})[i] === c).join("; ")]));
+  download(`catch-survey-boxes-${stamp()}.csv`, toCSV([head, ...out]), "text/csv");
 }
 
 /* ---------------------------------------------------------------- actions */
@@ -793,15 +716,11 @@ const actions = {
   next: () => { if (!stepReady()) return; const i = stepIndex(); go({ name: "run", step: STEPS[i + 1] }); },
   finish: () => {
     cur.finishedAt = nowISO();
-    const keep = new Set(tipCodes()); Object.keys(cur.tip).forEach(c => { if (!keep.has(c)) delete cur.tip[c]; });
     db.participants.push(cur); save();
     cur = null; go({ name: "done" }); startDoneTimer();
   },
-  up: d => { const k = +d.k; if (k > 0) { [cur.sort[k - 1], cur.sort[k]] = [cur.sort[k], cur.sort[k - 1]]; render(); } },
-  down: d => { const k = +d.k; if (k < cur.sort.length - 1) { [cur.sort[k + 1], cur.sort[k]] = [cur.sort[k], cur.sort[k + 1]]; render(); } },
   mark: d => { cur[d.field] = cur[d.field] === d.code ? null : d.code; render(); },
-  tip: d => { cur.tip[d.code] = d.v; render(); },
-  match: d => { cur.match[d.code] = +d.k; render(); },
+  match: d => { cur.match[+d.i] = d.code; render(); },
   addcode: () => {
     const used = new Set(codes());
     const c = [...LETTERS].find(l => !used.has(l));

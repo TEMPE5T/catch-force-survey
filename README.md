@@ -6,19 +6,25 @@ A walk-up web app for an **unattended** survey on how strong a magnetic catch sh
 
 ## The table
 
-- **One identical box per catch**, each with the same contents, labelled A, B, C … The catches differ only in force (for example, printed spacers set different gaps). Participants never swap catches.
+- **One identical box per catch**, each with the same contents, labelled A, B, C … The catches differ only in force (for example, printed spacers set different gaps). Participants never swap catches. **Assign the letters to the boxes at random**, not in force order, and set the boxes out in letter order.
 - **Three comparison closures** at the end of the table (default: gift box, eyeglass case, cabinet catch).
 - The device, locked to this page: Guided Access on an iPad, screen pinning on Android, or kiosk mode in a desktop browser. **Staff → Full screen** helps on a laptop.
 - **Staff → Print table labels and sign** prints a table sign, one big letter per box and a label per comparison closure.
 
 ## What a participant does
 
+About 3 minutes:
+
 0. Ticks one box (18 or older, first time, agrees) and taps **Start**.
-1. **Sorts** the boxes from weakest to strongest. The list starts in a new random order for each person.
-2. **Marks** the weakest box they would still accept, the one they would choose, and the strongest they would still accept.
-3. **Shake test**: turns their weakest-accepted and chosen boxes upside down, shakes gently, and reports whether the lid stayed shut.
-4. **Matches** each box to the comparison closure it feels most like, or "weaker than" / "stronger than" all of them.
-5. Optional comment, then **Finish**. The thank-you screen resets for the next person after 12 s.
+1. **Picks** the weakest box they would still accept, the one they would choose, and the strongest they would still accept (or "none acceptable").
+2. For each comparison closure, picks the **box that feels most like it**, or "None is close".
+3. Optional comment, then **Finish**. The thank-you screen resets for the next person after 12 s.
+
+**Cut on 17 Nov, because they added little to the voice of the customer:**
+
+- A sorting step. It only tested whether people can tell the boxes apart, and it was the slowest step. Out-of-order picks are now caught from the measured forces instead.
+- A self-run shake test. It was uncontrolled and self-reported, so staff now run the tip test on every box.
+- A 6 × 5 matching grid. It became three questions with the same information.
 
 **Leaving early.** "Stop" deletes that person's answers. If the screen goes untouched (120 s by default), a "Still there?" prompt appears; after 30 s more the survey resets and the answers are deleted. In both cases only a count is kept, shown on the Results screen.
 
@@ -34,9 +40,9 @@ In **Setup**:
 **Results** turns each person's picks into newtons:
 
 - the median weakest-accepted, chosen and strongest-accepted forces, with a per-person range chart;
-- sorting accuracy (Kendall's τ against the measured forces). Neighbours that are often swapped are too close to feel.
-- shake-test outcomes;
-- the median force behind each comparison closure, with a check that they come out in order;
+- **flagged responses**: picks out of order in measured force, excluded from the medians but kept in the exports;
+- whether the window fits **inside the ladder**: how many accept even the weakest or the strongest box. If many do, that edge lies beyond the ladder.
+- the median force of the box picked as most like each comparison closure, with a check that they come out in order;
 - the number who stopped or walked away.
 
 Exports:
