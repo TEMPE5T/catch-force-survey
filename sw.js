@@ -1,5 +1,5 @@
 // Offline cache for the survey page: network first (so updates arrive), cache as the fallback.
-const CACHE = "catch-survey-v1";
+const CACHE = "catch-survey-v2";
 const FILES = ["./", "./index.html"];
 
 self.addEventListener("install", e => {
